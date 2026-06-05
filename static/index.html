@@ -4,28 +4,54 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GeoBoard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
     <div id="sidebar">
-      <h2>GeoBoard</h2>
-      <p class="sub">인천 미추홀구 공공시설 현황</p>
+      <div class="sidebar-header">
+        <div>
+          <h2>GeoBoard</h2>
+          <p class="sub">인천광역시 공간정보 플랫폼</p>
+        </div>
+        <div class="layer-toggle">
+          <button id="btn-facilities" class="toggle-btn active" onclick="switchLayer('facilities')">공공시설</button>
+          <button id="btn-restrooms" class="toggle-btn" onclick="switchLayer('restrooms')">화장실</button>
+        </div>
+      </div>
 
       <input type="text" id="keyword" placeholder="시설명 또는 주소 검색" />
 
-      <select id="type">
-        <option value="">전체 유형</option>
-        <option value="다목적실">다목적실</option>
-        <option value="회의실">회의실</option>
-        <option value="강의실">강의실</option>
-        <option value="강당">강당</option>
-        <option value="기타">기타</option>
-      </select>
+      <div id="filter-facilities">
+        <select id="type">
+          <option value="">전체 유형</option>
+          <option value="다목적실">다목적실</option>
+          <option value="회의실">회의실</option>
+          <option value="강의실">강의실</option>
+          <option value="강당">강당</option>
+          <option value="기타">기타</option>
+        </select>
+        <select id="is_paid">
+          <option value="">유/무료 전체</option>
+          <option value="N">무료</option>
+          <option value="Y">유료</option>
+        </select>
+      </div>
 
-      <select id="is_paid">
-        <option value="">유/무료 전체</option>
-        <option value="N">무료</option>
-        <option value="Y">유료</option>
-      </select>
+      <div id="filter-restrooms" style="display:none">
+        <select id="gu">
+          <option value="">전체 군구</option>
+          <option value="중구">중구</option>
+          <option value="동구">동구</option>
+          <option value="미추홀구">미추홀구</option>
+          <option value="연수구">연수구</option>
+          <option value="남동구">남동구</option>
+          <option value="부평구">부평구</option>
+          <option value="계양구">계양구</option>
+          <option value="서구">서구</option>
+          <option value="강화군">강화군</option>
+        </select>
+      </div>
 
       <button onclick="search()">검색</button>
 

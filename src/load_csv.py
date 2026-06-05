@@ -10,10 +10,9 @@ def load():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # 공공시설
+    # 공공시설 — 이미 데이터가 있으면 건너뜀
     fac_path = DATA_DIR / "인천광역시_미추홀구_공공시설개방정보_20251101.csv"
-    if fac_path.exists():
-        cursor.execute("DELETE FROM facilities")
+    if fac_path.exists() and cursor.execute("SELECT COUNT(*) FROM facilities").fetchone()[0] == 0:
         df = pd.read_csv(fac_path, encoding="utf-8-sig")
         for _, row in df.iterrows():
             cursor.execute("""
@@ -36,10 +35,9 @@ def load():
                 float(row.get("경도", 0) or 0),
             ))
 
-    # 민간개방 화장실
+    # 민간개방 화장실 — 이미 데이터가 있으면 건너뜀
     rest_path = DATA_DIR / "restrooms_geocoded.csv"
-    if rest_path.exists():
-        cursor.execute("DELETE FROM restrooms")
+    if rest_path.exists() and cursor.execute("SELECT COUNT(*) FROM restrooms").fetchone()[0] == 0:
         df2 = pd.read_csv(rest_path, encoding="utf-8-sig")
         for _, row in df2.iterrows():
             cursor.execute("""

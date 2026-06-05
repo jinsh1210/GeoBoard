@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GeoBoard</title>
+  </head>
+  <body>
+    <div id="sidebar">
+      <h2>GeoBoard</h2>
+      <p class="sub">인천 미추홀구 공공시설 현황</p>
+
+      <input type="text" id="keyword" placeholder="시설명 또는 주소 검색" />
+
+      <select id="type">
+        <option value="">전체 유형</option>
+        <option value="다목적실">다목적실</option>
+        <option value="회의실">회의실</option>
+        <option value="강의실">강의실</option>
+        <option value="강당">강당</option>
+        <option value="기타">기타</option>
+      </select>
+
+      <select id="is_paid">
+        <option value="">유/무료 전체</option>
+        <option value="N">무료</option>
+        <option value="Y">유료</option>
+      </select>
+
+      <button onclick="search()">검색</button>
+
+      <div id="count"></div>
+      <div id="list"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="/static/map.js"></script>
+  </body>
+</html>

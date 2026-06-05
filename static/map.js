@@ -7,6 +7,12 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 let markers = [];
 let currentLayer = "facilities";
 
+function esc(value) {
+  const el = document.createElement("span");
+  el.textContent = value ?? "";
+  return el.innerHTML;
+}
+
 function switchLayer(layer) {
   currentLayer = layer;
 
@@ -17,6 +23,52 @@ function switchLayer(layer) {
 
   document.getElementById("keyword").value = "";
   search();
+}
+
+function makeCard(item) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const name = document.createElement("div");
+  name.className = "name";
+  name.textContent = item.name;
+
+  const meta = document.createElement("div");
+  meta.className = "type";
+
+  const addr = document.createElement("div");
+  addr.className = "addr";
+  addr.textContent = item.address;
+
+  if (currentLayer === "facilities") {
+    meta.textContent = `${item.type} · ${item.is_paid === "Y" ? "유료" : "무료"}`;
+  } else {
+    meta.textContent = item.gu;
+  }
+
+  card.append(name, meta, addr);
+  return card;
+}
+
+function makePopup(item) {
+  if (currentLayer === "facilities") {
+    return `
+      <b>${esc(item.name)}</b><br>
+      유형: ${esc(item.type)}<br>
+      운영: ${esc(item.open_time)} ~ ${esc(item.close_time)}<br>
+      유/무료: ${item.is_paid === "Y" ? `유료 (${esc(item.fee)}원)` : "무료"}<br>
+      수용: ${esc(item.capacity) || "-"}명<br>
+      주소: ${esc(item.address)}<br>
+      전화: ${esc(item.phone)}
+    `;
+  } else {
+    return `
+      <b>${esc(item.name)}</b><br>
+      군구: ${esc(item.gu)}<br>
+      주소: ${esc(item.address)}<br>
+      지정: ${esc(item.year) || "-"}년
+    `;
+  }
 }
 
 async function search() {
@@ -46,42 +98,10 @@ async function search() {
     if (!item.lat || !item.lng) return;
 
     const marker = L.marker([item.lat, item.lng]).addTo(map);
-
-    if (currentLayer === "facilities") {
-      marker.bindPopup(`
-        <b>${item.name}</b><br>
-        유형: ${item.type}<br>
-        운영: ${item.open_time} ~ ${item.close_time}<br>
-        유/무료: ${item.is_paid === "Y" ? "유료 (" + item.fee + "원)" : "무료"}<br>
-        수용: ${item.capacity || "-"}명<br>
-        주소: ${item.address}<br>
-        전화: ${item.phone}
-      `);
-    } else {
-      marker.bindPopup(`
-        <b>${item.name}</b><br>
-        군구: ${item.gu}<br>
-        주소: ${item.address}<br>
-        지정: ${item.year || "-"}년
-      `);
-    }
+    marker.bindPopup(makePopup(item));
     markers.push(marker);
 
-    const card = document.createElement("div");
-    card.className = "card";
-    if (currentLayer === "facilities") {
-      card.innerHTML = `
-        <div class="name">${item.name}</div>
-        <div class="type">${item.type} · ${item.is_paid === "Y" ? "유료" : "무료"}</div>
-        <div class="addr">${item.address}</div>
-      `;
-    } else {
-      card.innerHTML = `
-        <div class="name">${item.name}</div>
-        <div class="type">${item.gu}</div>
-        <div class="addr">${item.address}</div>
-      `;
-    }
+    const card = makeCard(item);
     card.onclick = () => {
       map.setView([item.lat, item.lng], 17);
       marker.openPopup();

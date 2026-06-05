@@ -10,65 +10,59 @@ app = FastAPI()
 
 BASE = Path(__file__).resolve().parent.parent
 
+
+def query_db(sql: str, params: list) -> list[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+    conn.close()
+    return rows
+
+
 @app.on_event("startup")
 def startup():
     load()
 
+
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
+
 
 @app.get("/")
 def root():
     return FileResponse(str(BASE / "static" / "index.html"))
 
+
 @app.get("/api/facilities")
 def get_facilities(
     keyword: str = Query(""),
     type: str = Query(""),
-    is_paid: str = Query("")
+    is_paid: str = Query(""),
 ):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    query = "SELECT * FROM facilities WHERE 1=1"
+    sql = "SELECT * FROM facilities WHERE 1=1"
     params = []
-
     if keyword:
-        query += " AND (name LIKE ? OR address LIKE ?)"
+        sql += " AND (name LIKE ? OR address LIKE ?)"
         params += [f"%{keyword}%", f"%{keyword}%"]
     if type:
-        query += " AND type = ?"
+        sql += " AND type = ?"
         params.append(type)
     if is_paid:
-        query += " AND is_paid = ?"
+        sql += " AND is_paid = ?"
         params.append(is_paid)
-
-    cursor.execute(query, params)
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
+    return query_db(sql, params)
 
 
 @app.get("/api/restrooms")
 def get_restrooms(
     keyword: str = Query(""),
-    gu: str = Query("")
+    gu: str = Query(""),
 ):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    query = "SELECT * FROM restrooms WHERE 1=1"
+    sql = "SELECT * FROM restrooms WHERE 1=1"
     params = []
-
     if keyword:
-        query += " AND (name LIKE ? OR address LIKE ?)"
+        sql += " AND (name LIKE ? OR address LIKE ?)"
         params += [f"%{keyword}%", f"%{keyword}%"]
     if gu:
-        query += " AND gu = ?"
+        sql += " AND gu = ?"
         params.append(gu)
-
-    cursor.execute(query, params)
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
+    return query_db(sql, params)

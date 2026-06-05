@@ -2,26 +2,29 @@ from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import sqlite3
+from pathlib import Path
 from db import DB_PATH, init_db
 from load_csv import load
 
 app = FastAPI()
 
+BASE = Path(__file__).resolve().parent.parent
+
 @app.on_event("startup")
 def startup():
     load()
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
 @app.get("/")
 def root():
-    return FileResponse("static/index.html")
+    return FileResponse(str(BASE / "static" / "index.html"))
 
 @app.get("/api/facilities")
 def get_facilities(
     keyword: str = Query(""),
     type: str = Query(""),
-    is_paid: str = Query
+    is_paid: str = Query("")
 ):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -39,7 +42,32 @@ def get_facilities(
     if is_paid:
         query += " AND is_paid = ?"
         params.append(is_paid)
-    
+
+    cursor.execute(query, params)
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+@app.get("/api/restrooms")
+def get_restrooms(
+    keyword: str = Query(""),
+    gu: str = Query("")
+):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    query = "SELECT * FROM restrooms WHERE 1=1"
+    params = []
+
+    if keyword:
+        query += " AND (name LIKE ? OR address LIKE ?)"
+        params += [f"%{keyword}%", f"%{keyword}%"]
+    if gu:
+        query += " AND gu = ?"
+        params.append(gu)
+
     cursor.execute(query, params)
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()

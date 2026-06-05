@@ -1,10 +1,6 @@
-<img src="ICON_URL" align="left" height="100" alt="GeoBoard icon" />
-
 # GeoBoard
 인천광역시 공공시설·민간개방 화장실 위치를 지도 위에서 검색·조회하는 GIS 웹 애플리케이션
 
-[![GitHub release](https://img.shields.io/github/v/release/jinsh1210/GeoBoard)](https://github.com/jinsh1210/GeoBoard/releases/latest)
-[![License](https://img.shields.io/github/license/jinsh1210/GeoBoard)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-web-lightgrey)](https://github.com/jinsh1210/GeoBoard)
 [![Python](https://img.shields.io/badge/python-3.9+-blue)](https://www.python.org)
 
@@ -12,7 +8,7 @@
 
 ## Screenshots
 
-![Screenshot](SCREENSHOT_URL)
+![Screenshot](assets/main_screen.png)
 
 ## Features
 
@@ -87,6 +83,3 @@ GeoBoard/
 - [Kakao Local API](https://developers.kakao.com) — 한국 주소 지오코딩
 - [pandas](https://pandas.pydata.org) — CSV 데이터 처리
 
-## License
-
-[MIT](LICENSE)

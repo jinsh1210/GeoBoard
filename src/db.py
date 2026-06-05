@@ -1,6 +1,7 @@
 import sqlite3
+from pathlib import Path
 
-DB_PATH = "geoboard.db"
+DB_PATH = str(Path(__file__).resolve().parent.parent / "src" / "geoboard.db")
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -22,8 +23,16 @@ def init_db():
             lng         REAL
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS restrooms (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            name    TEXT,
+            gu      TEXT,
+            address TEXT,
+            year    INTEGER,
+            lat     REAL,
+            lng     REAL
+        )
+    """)
     conn.commit()
     conn.close()
-    
-def get_conn():
-    return sqlite3.connect(DB_PATH)

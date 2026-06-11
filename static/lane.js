@@ -98,22 +98,38 @@ function addArrow(x, indication, isRec) {
   const color = isRec ? 0x4ade80 : 0x64748b;
   const mat = new THREE.MeshLambertMaterial({ color });
 
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8), mat);
-  const head = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 8), mat);
-  head.position.y = 0.85;
+  // 화살표: XZ 평면. ConeGeometry 기본 끝은 +Y 방향
+  // body를 X축 -90도 회전 → 끝이 -Z(화면 위=직진 방향)를 가리킴
+  // 이후 그룹 Y축 회전으로 방향 제어
+  const bodyLen = 1.2;
+  const headLen = 0.55;
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, bodyLen, 8), mat);
+  body.rotation.x = -Math.PI / 2;        // +Z(뒤) 방향으로 눕힘
+  body.position.z = bodyLen / 2;         // 기둥: 뒤쪽
+
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.26, headLen, 8), mat);
+  head.rotation.x = -Math.PI / 2;        // cone 뾰족한 끝이 -Z 방향
+  head.position.z = -(headLen / 2);      // 머리: 앞쪽
 
   const g = new THREE.Group();
   g.add(body);
   g.add(head);
-  g.position.set(x, 1.2, -1);
+  g.position.set(x, 0.25, 1);
   g.userData.isLane = true;
 
-  if (indication === "left")        g.rotation.z = -Math.PI / 2;
-  else if (indication === "slight left")  g.rotation.z = -Math.PI / 4;
-  else if (indication === "right")        g.rotation.z =  Math.PI / 2;
-  else if (indication === "slight right") g.rotation.z =  Math.PI / 4;
-  else if (indication === "uturn")        g.rotation.z =  Math.PI;
-  // straight: 기본값 (위 방향)
+  // Y축 회전: 직진=0, 좌회전=+90°(왼쪽), 우회전=-90°(오른쪽)
+  const rotations = {
+    "straight":      0,
+    "left":          Math.PI / 2,
+    "slight left":   Math.PI / 4,
+    "right":        -Math.PI / 2,
+    "slight right": -Math.PI / 4,
+    "uturn":         Math.PI,
+    "sharp left":    Math.PI / 2,
+    "sharp right":  -Math.PI / 2,
+  };
+  g.rotation.y = rotations[indication] ?? 0;
 
   laneScene.add(g);
 }

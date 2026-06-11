@@ -136,6 +136,177 @@ select {
   display: none;
 }
 
+/* 차선 안내 HUD 오버레이 */
+#lane-hud {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateX(160px); /* sidebar 320px 절반 보정 */
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px 24px;
+  z-index: 500;
+  min-width: 320px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#lane-hud.hidden {
+  display: none;
+}
+
+#lane-hud-dist {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+#lane-hud-lanes {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.lane-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.05);
+  min-width: 64px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.lane-card.recommended {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.lane-arrow {
+  width: 32px;
+  height: 32px;
+  opacity: 0.5;
+}
+
+.lane-card.recommended .lane-arrow {
+  opacity: 1;
+}
+
+.lane-num {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.lane-card.recommended .lane-num {
+  color: #22c55e;
+}
+
+.lane-car {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* 자동완성 */
+.suggest-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.suggest-wrap input {
+  margin-bottom: 0;
+}
+
+.suggest-list {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 2000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggest-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggest-item:last-child { border-bottom: none; }
+.suggest-item:hover { background: #f0f6ff; }
+
+.si-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.si-addr {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* 차선 안내 사이드바 입력 */
+#lane-inputs input {
+  margin-bottom: 0;
+}
+
+#lane-inputs > button {
+  width: 100%;
+  padding: 10px;
+  background: #2c7be5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+#lane-inputs > button:hover {
+  background: #1a5fba;
+}
+
+#lane-step-info {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.step-num { color: #94a3b8; }
+.step-road { font-weight: 600; color: #334155; }
+.step-action { color: #2c7be5; font-weight: 700; }
+
+#btn-sim {
+  width: 100%;
+  padding: 8px;
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#btn-sim:hover { background: #16a34a; }
+
 /* 뷰 전환 (2D / 3D) */
 .view-toggle {
   display: flex;

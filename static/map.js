@@ -117,25 +117,17 @@ let currentLayer = "facilities";
 let currentView = "2d";
 let lastResults = [];
 
-// ─── 뷰 전환 ─────────────────────────────────────────────────────
+// ─── 뷰 전환 (2D / 3D) ───────────────────────────────────────────
 function switchView(view) {
   currentView = view;
   document.getElementById("btn-view-2d").classList.toggle("active", view === "2d");
   document.getElementById("btn-view-3d").classList.toggle("active", view === "3d");
-  document.getElementById("btn-view-lane").classList.toggle("active", view === "lane");
+
+  // 차선 안내 레이어 중에는 뷰 전환 무시 (항상 map3d 사용)
+  if (currentLayer === "lane") return;
 
   document.getElementById("map").style.display = view === "2d" ? "block" : "none";
-  // 3D 뷰와 차선 안내 뷰 모두 map3d 인스턴스를 공유
-  document.getElementById("map3d").style.display = (view === "3d" || view === "lane") ? "block" : "none";
-
-  // 사이드바 필터 영역 전환
-  document.getElementById("lane-inputs").style.display = view === "lane" ? "block" : "none";
-  document.getElementById("keyword").style.display = view === "lane" ? "none" : "";
-  document.getElementById("filter-facilities").style.display = (view !== "lane" && currentLayer === "facilities") ? "" : "none";
-  document.getElementById("filter-restrooms").style.display = (view !== "lane" && currentLayer === "restrooms") ? "" : "none";
-  document.querySelector("#sidebar > button:not(.view-btn):not(.toggle-btn)").style.display = view === "lane" ? "none" : "";
-  document.getElementById("count").style.display = view === "lane" ? "none" : "";
-  document.getElementById("list").style.display = view === "lane" ? "none" : "";
+  document.getElementById("map3d").style.display = view === "3d" ? "block" : "none";
 
   if (view === "3d") {
     map3d.resize();
@@ -144,15 +136,6 @@ function switchView(view) {
       const first = lastResults.find((r) => r.lat && r.lng);
       if (first) flyTo3d(first.lng, first.lat);
     }
-  }
-
-  if (view === "lane") {
-    map3d.resize();
-    if (laneSteps.length) {
-      showLaneStep(laneStepIdx);
-    }
-  } else {
-    document.getElementById("lane-hud").classList.add("hidden");
   }
 }
 
@@ -208,10 +191,34 @@ function switchLayer(layer) {
   currentLayer = layer;
   document.getElementById("btn-facilities").classList.toggle("active", layer === "facilities");
   document.getElementById("btn-restrooms").classList.toggle("active", layer === "restrooms");
-  document.getElementById("filter-facilities").style.display = layer === "facilities" ? "" : "none";
-  document.getElementById("filter-restrooms").style.display = layer === "restrooms" ? "" : "none";
-  document.getElementById("keyword").value = "";
-  search();
+  document.getElementById("btn-lane").classList.toggle("active", layer === "lane");
+
+  const isLane = layer === "lane";
+
+  // 지도 표시 전환: 차선 안내는 항상 map3d, 나머지는 currentView 따름
+  document.getElementById("map").style.display = (!isLane && currentView === "2d") ? "block" : "none";
+  document.getElementById("map3d").style.display = (isLane || currentView === "3d") ? "block" : "none";
+  if (isLane || currentView === "3d") map3d.resize();
+
+  // 사이드바 콘텐츠 전환
+  document.getElementById("lane-inputs").style.display = isLane ? "block" : "none";
+  document.getElementById("keyword").style.display = isLane ? "none" : "";
+  document.getElementById("filter-facilities").style.display = (!isLane && layer === "facilities") ? "" : "none";
+  document.getElementById("filter-restrooms").style.display = (!isLane && layer === "restrooms") ? "" : "none";
+  document.querySelector("#sidebar > button:not(.view-btn):not(.toggle-btn)").style.display = isLane ? "none" : "";
+  document.getElementById("count").style.display = isLane ? "none" : "";
+  document.getElementById("list").style.display = isLane ? "none" : "";
+
+  if (isLane) {
+    map3d.resize();
+    if (laneSteps.length) showLaneStep(laneStepIdx);
+    else document.getElementById("lane-hud").classList.add("hidden");
+  } else {
+    stopSim(false);
+    document.getElementById("lane-hud").classList.add("hidden");
+    document.getElementById("keyword").value = "";
+    search();
+  }
 }
 
 // ─── 카드 생성 ───────────────────────────────────────────────────
@@ -266,6 +273,8 @@ function makePopup(item) {
 
 // ─── 검색 ────────────────────────────────────────────────────────
 async function search() {
+  if (currentLayer === "lane") return;
+
   const keyword = document.getElementById("keyword").value;
   let url;
 
@@ -298,11 +307,11 @@ async function search() {
 
     const card = makeCard(item);
     card.onclick = () => {
-      if (currentView === "2d") {
+      if (currentView === "3d") {
+        flyTo3d(item.lng, item.lat);
+      } else {
         map.setView([item.lat, item.lng], 17);
         marker.openPopup();
-      } else {
-        flyTo3d(item.lng, item.lat);
       }
     };
     list.appendChild(card);
@@ -318,8 +327,11 @@ search();
 // ─── 차선 안내 ────────────────────────────────────────────────────
 let laneSteps = [];
 let laneStepIdx = 0;
-let simTimer = null;
-let laneStepMarker = null;
+let simRafId = null;       // requestAnimationFrame ID
+let carMarker = null;      // 차 위치 마커
+let destMarker = null;     // 도착 지점 마커
+let routeCoordsFull = [];  // 전체 경로 좌표 [lng, lat][]
+let simCoordIdx = 0;       // 현재 경로 좌표 인덱스
 
 // 거리 SI 표기 (100 m / 1.2 km)
 function formatDist(m) {
@@ -470,11 +482,24 @@ async function startLaneGuide() {
     }));
 
   laneStepIdx = 0;
-  showLaneStep(laneStepIdx);
+  simCoordIdx = 0;
+  routeCoordsFull = routeCoords;
+
+  showLaneStep(0);
   document.getElementById("lane-sim-controls").style.display = "block";
 
-  // 지도 위에 경로 라인 표시
   updateRouteLayer(routeCoords);
+  placeDestMarker(routeCoords[routeCoords.length - 1]);
+
+  // 차 마커를 출발 위치에 배치
+  placeCarMarker(routeCoords[0]);
+  map3d.flyTo({
+    center: routeCoords[0],
+    zoom: 17,
+    pitch: 55,
+    bearing: -20,
+    speed: 1.2,
+  });
 }
 
 // 선택된 좌표 캐시 (자동완성에서 선택 시 저장)
@@ -533,49 +558,146 @@ function showLaneStep(idx) {
     `<span class="step-road">${step.name || ""}</span> ` +
     `<span class="step-action">${modifierToKo(step.modifier)}</span>` +
     (isLast ? " · <b>목적지 도착</b>" : "");
+}
 
-  // 해당 교차로로 카메라 이동
-  if (step.lat && step.lng) {
-    map3d.flyTo({
-      center: [step.lng, step.lat],
-      zoom: 17,
-      pitch: 55,
-      bearing: -20,
-      speed: 1.0,
-    });
+// 차 마커 HTML 생성
+function createCarEl() {
+  const el = document.createElement("div");
+  el.style.cssText = "font-size:24px;line-height:1;transform-origin:center;";
+  el.textContent = "🚗";
+  return el;
+}
 
-    // 위치 마커 업데이트
-    if (!laneStepMarker) {
-      laneStepMarker = new maptilersdk.Marker({ color: "#22c55e" })
-        .setLngLat([step.lng, step.lat])
-        .addTo(map3d);
-    } else {
-      laneStepMarker.setLngLat([step.lng, step.lat]);
+function placeCarMarker(lngLat) {
+  if (!carMarker) {
+    carMarker = new maptilersdk.Marker({ element: createCarEl(), anchor: "center" })
+      .setLngLat(lngLat)
+      .addTo(map3d);
+  } else {
+    carMarker.setLngLat(lngLat);
+  }
+}
+
+function placeDestMarker(lngLat) {
+  if (!destMarker) {
+    const el = document.createElement("div");
+    el.style.cssText = "font-size:28px;line-height:1;";
+    el.textContent = "🏁";
+    destMarker = new maptilersdk.Marker({ element: el, anchor: "bottom" })
+      .setLngLat(lngLat)
+      .addTo(map3d);
+  } else {
+    destMarker.setLngLat(lngLat);
+  }
+}
+
+// 두 좌표 사이 bearing (도) 계산
+function calcBearing(from, to) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+  const dLng = toRad(to[0] - from[0]);
+  const lat1 = toRad(from[1]);
+  const lat2 = toRad(to[1]);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+// 현재 좌표에서 가장 가까운 laneStep 인덱스 업데이트
+function updateLaneStepByCoord(lngLat) {
+  for (let i = laneSteps.length - 1; i >= 0; i--) {
+    const s = laneSteps[i];
+    const dLng = s.lng - lngLat[0];
+    const dLat = s.lat - lngLat[1];
+    const dist = Math.sqrt(dLng * dLng + dLat * dLat);
+    if (dist < 0.002) {
+      if (i !== laneStepIdx) {
+        laneStepIdx = i;
+        showLaneStep(laneStepIdx);
+      }
+      break;
     }
   }
 }
 
-function toggleSim() {
-  if (simTimer) {
-    clearInterval(simTimer);
-    simTimer = null;
-    document.getElementById("btn-sim").textContent = "▶ 시뮬레이션";
+let simLastTime = null;
+const SIM_SPEED = 0.00015; // 초당 이동 거리 (경도/위도 단위)
+
+function simLoop(ts) {
+  if (!simLastTime) simLastTime = ts;
+  const dt = (ts - simLastTime) / 1000;
+  simLastTime = ts;
+
+  if (simCoordIdx >= routeCoordsFull.length - 1) {
+    stopSim(true);
     return;
   }
-  laneStepIdx = 0;
-  showLaneStep(laneStepIdx);
-  document.getElementById("btn-sim").textContent = "⏹ 정지";
 
-  simTimer = setInterval(() => {
-    laneStepIdx++;
-    if (laneStepIdx >= laneSteps.length) {
-      clearInterval(simTimer);
-      simTimer = null;
-      document.getElementById("btn-sim").textContent = "▶ 시뮬레이션";
-      return;
+  // 경과 시간에 따라 좌표 전진
+  let dist = SIM_SPEED * dt;
+  while (dist > 0 && simCoordIdx < routeCoordsFull.length - 1) {
+    const from = routeCoordsFull[simCoordIdx];
+    const to = routeCoordsFull[simCoordIdx + 1];
+    const dLng = to[0] - from[0];
+    const dLat = to[1] - from[1];
+    const segLen = Math.sqrt(dLng * dLng + dLat * dLat);
+    if (dist >= segLen) {
+      dist -= segLen;
+      simCoordIdx++;
+    } else {
+      const ratio = dist / segLen;
+      routeCoordsFull[simCoordIdx] = [from[0] + dLng * ratio, from[1] + dLat * ratio];
+      dist = 0;
     }
-    showLaneStep(laneStepIdx);
-  }, 2000);
+  }
+
+  const cur = routeCoordsFull[simCoordIdx];
+  const next = routeCoordsFull[Math.min(simCoordIdx + 1, routeCoordsFull.length - 1)];
+  const bearing = calcBearing(cur, next);
+
+  placeCarMarker(cur);
+  map3d.setCenter(cur);
+  map3d.setBearing(bearing);
+
+  updateLaneStepByCoord(cur);
+
+  simRafId = requestAnimationFrame(simLoop);
+}
+
+function stopSim(arrived) {
+  if (simRafId) {
+    cancelAnimationFrame(simRafId);
+    simRafId = null;
+  }
+  simLastTime = null;
+  document.getElementById("btn-sim").textContent = "▶ 시뮬레이션";
+
+  if (arrived) {
+    document.getElementById("lane-step-info").innerHTML =
+      `<b>🏁 목적지에 도착했습니다.</b>`;
+    document.getElementById("lane-hud").classList.add("hidden");
+  }
+}
+
+function toggleSim() {
+  if (simRafId) {
+    stopSim(false);
+    return;
+  }
+  if (!routeCoordsFull.length) return;
+
+  simCoordIdx = 0;
+  simLastTime = null;
+  laneStepIdx = 0;
+  showLaneStep(0);
+
+  // 카메라를 출발 위치로
+  const start = routeCoordsFull[0];
+  map3d.easeTo({ center: start, zoom: 17, pitch: 55, bearing: -20, duration: 600 });
+  placeCarMarker(start);
+
+  document.getElementById("btn-sim").textContent = "⏹ 정지";
+  simRafId = requestAnimationFrame(simLoop);
 }
 
 function updateRouteLayer(coords) {

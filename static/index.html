@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://cdn.maptiler.com/maptiler-sdk-js/v2.3.0/maptiler-sdk.css" rel="stylesheet" />
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
@@ -21,6 +22,11 @@
           <button id="btn-facilities" class="toggle-btn active" onclick="switchLayer('facilities')">공공시설</button>
           <button id="btn-restrooms" class="toggle-btn" onclick="switchLayer('restrooms')">화장실</button>
         </div>
+      </div>
+
+      <div class="view-toggle">
+        <button id="btn-view-2d" class="view-btn active" onclick="switchView('2d')">2D</button>
+        <button id="btn-view-3d" class="view-btn" onclick="switchView('3d')">3D 뷰</button>
       </div>
 
       <input type="text" id="keyword" placeholder="시설명 또는 주소 검색" />
@@ -63,8 +69,15 @@
     </div>
 
     <div id="map"></div>
+    <div id="map3d"></div>
+
+    <div id="building-info" class="building-info hidden">
+      <button class="building-info-close" onclick="closeBuildingInfo()">✕</button>
+      <div id="building-info-content"></div>
+    </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.maptiler.com/maptiler-sdk-js/v2.3.0/maptiler-sdk.umd.min.js"></script>
     <script src="/static/map.js"></script>
   </body>
 </html>

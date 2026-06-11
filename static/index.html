@@ -21,12 +21,30 @@
         <div class="layer-toggle">
           <button id="btn-facilities" class="toggle-btn active" onclick="switchLayer('facilities')">공공시설</button>
           <button id="btn-restrooms" class="toggle-btn" onclick="switchLayer('restrooms')">화장실</button>
+          <button id="btn-lane" class="toggle-btn" onclick="switchLayer('lane')">차선 안내</button>
         </div>
       </div>
 
       <div class="view-toggle">
         <button id="btn-view-2d" class="view-btn active" onclick="switchView('2d')">2D</button>
-        <button id="btn-view-3d" class="view-btn" onclick="switchView('3d')">3D 뷰</button>
+        <button id="btn-view-3d" class="view-btn" onclick="switchView('3d')">3D</button>
+      </div>
+
+      <!-- 차선 안내 입력 (차선 안내 탭일 때만 표시) -->
+      <div id="lane-inputs" style="display:none">
+        <div class="suggest-wrap">
+          <input type="text" id="lane-origin" placeholder="출발지 검색" autocomplete="off" oninput="onSuggest(this, 'origin')" />
+          <div id="suggest-origin" class="suggest-list"></div>
+        </div>
+        <div class="suggest-wrap">
+          <input type="text" id="lane-dest" placeholder="목적지 검색" autocomplete="off" oninput="onSuggest(this, 'dest')" />
+          <div id="suggest-dest" class="suggest-list"></div>
+        </div>
+        <button onclick="startLaneGuide()">경로 탐색</button>
+        <div id="lane-step-info"></div>
+        <div id="lane-sim-controls" style="display:none">
+          <button id="btn-sim" onclick="toggleSim()">▶ 시뮬레이션</button>
+        </div>
       </div>
 
       <input type="text" id="keyword" placeholder="시설명 또는 주소 검색" />
@@ -70,6 +88,12 @@
 
     <div id="map"></div>
     <div id="map3d"></div>
+
+    <!-- 차선 안내 HUD 오버레이 (map3d 위에 절대 포지션) -->
+    <div id="lane-hud" class="hidden">
+      <div id="lane-hud-dist"></div>
+      <div id="lane-hud-lanes"></div>
+    </div>
 
     <div id="building-info" class="building-info hidden">
       <button class="building-info-close" onclick="closeBuildingInfo()">✕</button>

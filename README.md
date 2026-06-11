@@ -12,6 +12,10 @@
 
 ## Features
 
+- **2D / 3D 뷰 전환**: 사이드바 토글로 Leaflet 2D 지도와 Maptiler 3D 뷰를 즉시 전환
+- **3D 건물 시각화**: OSM `render_height` 속성 기반 fill-extrusion으로 건물 높이 시각화, 높이별 파란 그라데이션
+- **건물 클릭 정보**: 3D 뷰에서 건물 클릭 시 높이·층수·유형·좌표를 오버레이 패널로 표시
+- **3D 검색 핀**: 검색 결과를 3D 빨간 기둥으로 지도 위에 표시, 카드 클릭 시 해당 위치로 flyTo
 - **이중 레이어 전환**: 사이드바 토글로 공공시설(24개소)과 민간개방 화장실(183개소)을 즉시 전환
 - **공공시설 필터**: 시설 유형(다목적실·회의실·강의실 등)과 유/무료 여부로 검색 범위 축소
 - **화장실 필터**: 군구(중구·미추홀구·부평구 등 9개 구)별 필터링
@@ -54,7 +58,7 @@ GeoBoard/
 │   └── load_csv.py                 # CSV → SQLite 로더 (시작 시 자동 실행)
 ├── static/
 │   ├── index.html                  # 메인 페이지
-│   ├── map.js                      # Leaflet 지도·마커·검색 로직
+│   ├── map.js                      # Leaflet 2D + Maptiler 3D 지도·마커·검색 로직
 │   └── style.css                   # 스타일
 └── requirements.txt
 ```
@@ -79,7 +83,8 @@ GeoBoard/
 
 - [FastAPI](https://fastapi.tiangolo.com) — Python REST API 프레임워크
 - [Leaflet.js](https://leafletjs.com) — 인터랙티브 웹 지도 라이브러리
-- [OpenStreetMap](https://www.openstreetmap.org) — 오픈소스 지도 타일
+- [Maptiler SDK](https://docs.maptiler.com/sdk-js/) — 3D 건물 fill-extrusion 렌더링
+- [OpenStreetMap](https://www.openstreetmap.org) — 오픈소스 지도 타일 및 건물 높이 데이터
 - [Kakao Local API](https://developers.kakao.com) — 한국 주소 지오코딩
 - [pandas](https://pandas.pydata.org) — CSV 데이터 처리
 

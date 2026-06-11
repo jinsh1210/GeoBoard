@@ -27,6 +27,24 @@
       <div class="view-toggle">
         <button id="btn-view-2d" class="view-btn active" onclick="switchView('2d')">2D</button>
         <button id="btn-view-3d" class="view-btn" onclick="switchView('3d')">3D 뷰</button>
+        <button id="btn-view-lane" class="view-btn" onclick="switchView('lane')">차선 안내</button>
+      </div>
+
+      <!-- 차선 안내 입력 (차선 안내 탭일 때만 표시) -->
+      <div id="lane-inputs" style="display:none">
+        <div class="suggest-wrap">
+          <input type="text" id="lane-origin" placeholder="출발지 검색" autocomplete="off" oninput="onSuggest(this, 'origin')" />
+          <div id="suggest-origin" class="suggest-list"></div>
+        </div>
+        <div class="suggest-wrap">
+          <input type="text" id="lane-dest" placeholder="목적지 검색" autocomplete="off" oninput="onSuggest(this, 'dest')" />
+          <div id="suggest-dest" class="suggest-list"></div>
+        </div>
+        <button onclick="startLaneGuide()">경로 탐색</button>
+        <div id="lane-step-info"></div>
+        <div id="lane-sim-controls" style="display:none">
+          <button id="btn-sim" onclick="toggleSim()">▶ 시뮬레이션</button>
+        </div>
       </div>
 
       <input type="text" id="keyword" placeholder="시설명 또는 주소 검색" />
@@ -70,6 +88,10 @@
 
     <div id="map"></div>
     <div id="map3d"></div>
+    <div id="map-lane">
+      <div id="lane-canvas-wrap"></div>
+      <div id="lane-route-map"></div>
+    </div>
 
     <div id="building-info" class="building-info hidden">
       <button class="building-info-close" onclick="closeBuildingInfo()">✕</button>
@@ -78,6 +100,8 @@
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.maptiler.com/maptiler-sdk-js/v2.3.0/maptiler-sdk.umd.min.js"></script>
+    <script src="/static/three.min.js"></script>
+    <script src="/static/lane.js"></script>
     <script src="/static/map.js"></script>
   </body>
 </html>

@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import sqlite3
+import sqlite3, os, httpx
 from pathlib import Path
 from db import DB_PATH, init_db
 from load_csv import load
+
+KAKAO_KEY = os.getenv("KAKAO_API_KEY", "")
 
 app = FastAPI()
 
@@ -50,6 +52,46 @@ def get_facilities(
         sql += " AND is_paid = ?"
         params.append(is_paid)
     return query_db(sql, params)
+
+
+@app.get("/api/suggest")
+async def suggest(q: str = Query(...)):
+    if not KAKAO_KEY or len(q) < 2:
+        return []
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            "https://dapi.kakao.com/v2/local/search/keyword.json",
+            params={"query": q, "size": 5},
+            headers={"Authorization": f"KakaoAK {KAKAO_KEY}"},
+        )
+    docs = r.json().get("documents", [])
+    return [{"name": d["place_name"], "address": d["road_address_name"] or d["address_name"], "lat": float(d["y"]), "lng": float(d["x"])} for d in docs]
+
+
+@app.get("/api/geocode")
+async def geocode(q: str = Query(...)):
+    if not KAKAO_KEY:
+        raise HTTPException(status_code=500, detail="KAKAO_API_KEY not set")
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            "https://dapi.kakao.com/v2/local/search/address.json",
+            params={"query": q, "size": 1},
+            headers={"Authorization": f"KakaoAK {KAKAO_KEY}"},
+        )
+    docs = r.json().get("documents", [])
+    if not docs:
+        # 주소 검색 실패 시 키워드 검색 시도
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                "https://dapi.kakao.com/v2/local/search/keyword.json",
+                params={"query": q, "size": 1},
+                headers={"Authorization": f"KakaoAK {KAKAO_KEY}"},
+            )
+        docs = r.json().get("documents", [])
+    if not docs:
+        raise HTTPException(status_code=404, detail="주소를 찾을 수 없습니다")
+    doc = docs[0]
+    return {"lat": float(doc["y"]), "lng": float(doc["x"])}
 
 
 @app.get("/api/restrooms")

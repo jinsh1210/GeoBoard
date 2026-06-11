@@ -200,6 +200,9 @@ function switchLayer(layer) {
   document.getElementById("map3d").style.display = (isLane || currentView === "3d") ? "block" : "none";
   if (isLane || currentView === "3d") map3d.resize();
 
+  // 뷰 토글 (2D/3D) 은 차선 안내에서 불필요
+  document.querySelector(".view-toggle").style.display = isLane ? "none" : "";
+
   // 사이드바 콘텐츠 전환
   document.getElementById("lane-inputs").style.display = isLane ? "block" : "none";
   document.getElementById("keyword").style.display = isLane ? "none" : "";

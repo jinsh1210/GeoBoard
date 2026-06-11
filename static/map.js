@@ -7,49 +7,35 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap",
 }).addTo(map);
 
-// ─── Mapbox GL + Maptiler 3D 지도 ────────────────────────────────
-mapboxgl.accessToken = "pk.dummy"; // Maptiler는 자체 key로 인증하므로 dummy
-const map3d = new mapboxgl.Map({
+// ─── Maptiler SDK 3D 지도 ────────────────────────────────────────
+maptilersdk.config.apiKey = MAPTILER_TOKEN;
+
+const map3d = new maptilersdk.Map({
   container: "map3d",
-  style: `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_TOKEN}`,
+  style: maptilersdk.MapStyle.STREETS.DARK,
   center: [126.705, 37.455],
   zoom: 15,
   pitch: 55,
   bearing: -20,
 });
 
-map3d.addControl(new mapboxgl.NavigationControl(), "top-right");
+map3d.addControl(new maptilersdk.NavigationControl(), "top-right");
 
 map3d.on("load", () => {
-  // Maptiler OSM 3D 건물 소스
-  map3d.addSource("maptiler-buildings", {
-    type: "vector",
-    url: `https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_TOKEN}`,
-  });
+  // 스타일 내장 "Building 3D" 레이어 paint 덮어쓰기
+  map3d.setPaintProperty("Building 3D", "fill-extrusion-color", [
+    "interpolate", ["linear"],
+    ["coalesce", ["get", "render_height"], 0],
+    0,   "#1e3a5f",
+    30,  "#2c7be5",
+    60,  "#38bdf8",
+    100, "#7dd3fc",
+  ]);
+  map3d.setPaintProperty("Building 3D", "fill-extrusion-opacity", 0.85);
 
-  map3d.addLayer({
-    id: "3d-buildings",
-    source: "maptiler-buildings",
-    "source-layer": "building",
-    type: "fill-extrusion",
-    minzoom: 14,
-    paint: {
-      "fill-extrusion-color": [
-        "interpolate",
-        ["linear"],
-        ["coalesce", ["get", "render_height"], 0],
-        0, "#1e3a5f",
-        30, "#2c7be5",
-        60, "#38bdf8",
-        100, "#7dd3fc",
-      ],
-      "fill-extrusion-height": ["coalesce", ["get", "render_height"], 10],
-      "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-      "fill-extrusion-opacity": 0.85,
-    },
-  });
+  const BLDG_LAYER = "Building 3D";
 
-  // 검색 결과 GeoJSON 소스 (나중에 업데이트)
+  // 검색 결과 GeoJSON 핀 소스
   map3d.addSource("search-results", {
     type: "geojson",
     data: { type: "FeatureCollection", features: [] },
@@ -67,8 +53,8 @@ map3d.on("load", () => {
     },
   });
 
-  // 건물 클릭 → 높이 정보 표시
-  map3d.on("click", "3d-buildings", (e) => {
+  // 건물 클릭 → 높이 정보 패널
+  map3d.on("click", BLDG_LAYER, (e) => {
     const props = e.features[0].properties;
     showBuildingInfo({
       height: props.render_height ?? props.height ?? "정보 없음",
@@ -79,10 +65,10 @@ map3d.on("load", () => {
     });
   });
 
-  map3d.on("mouseenter", "3d-buildings", () => {
+  map3d.on("mouseenter", BLDG_LAYER, () => {
     map3d.getCanvas().style.cursor = "pointer";
   });
-  map3d.on("mouseleave", "3d-buildings", () => {
+  map3d.on("mouseleave", BLDG_LAYER, () => {
     map3d.getCanvas().style.cursor = "";
   });
 });
@@ -115,51 +101,36 @@ function flyTo3d(lng, lat) {
   map3d.flyTo({ center: [lng, lat], zoom: 16, pitch: 55, bearing: -20, speed: 1.2 });
 }
 
-// ─── 3D 핀 업데이트 ──────────────────────────────────────────────
+// ─── 3D 핀 업데이트 (Point → 미니 사각형 polygon) ────────────────
 function update3dPins(data) {
-  if (!map3d.getSource("search-results")) return;
+  const src = map3d.getSource("search-results");
+  if (!src) return;
+
+  const HALF = 0.00005;
   const features = data
     .filter((item) => item.lat && item.lng)
     .map((item) => ({
       type: "Feature",
-      geometry: { type: "Point", coordinates: [item.lng, item.lat] },
-      properties: {
-        name: item.name,
-        address: item.address,
-        type: item.type ?? item.gu ?? "",
-      },
-    }));
-
-  // Point → 사각형 polygon으로 변환 (fill-extrusion은 polygon만 가능)
-  const HALF = 0.00005;
-  const polygonFeatures = features.map((f) => {
-    const [lng, lat] = f.geometry.coordinates;
-    return {
-      ...f,
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [lng - HALF, lat - HALF],
-          [lng + HALF, lat - HALF],
-          [lng + HALF, lat + HALF],
-          [lng - HALF, lat + HALF],
-          [lng - HALF, lat - HALF],
+          [item.lng - HALF, item.lat - HALF],
+          [item.lng + HALF, item.lat - HALF],
+          [item.lng + HALF, item.lat + HALF],
+          [item.lng - HALF, item.lat + HALF],
+          [item.lng - HALF, item.lat - HALF],
         ]],
       },
-    };
-  });
+      properties: { name: item.name, address: item.address },
+    }));
 
-  map3d.getSource("search-results").setData({
-    type: "FeatureCollection",
-    features: polygonFeatures,
-  });
+  src.setData({ type: "FeatureCollection", features });
 }
 
 // ─── 건물 정보 패널 ──────────────────────────────────────────────
 function showBuildingInfo({ height, levels, type, name, lngLat }) {
   const panel = document.getElementById("building-info");
-  const content = document.getElementById("building-info-content");
-  content.innerHTML = `
+  document.getElementById("building-info-content").innerHTML = `
     <div class="bi-title">${name || "건물"}</div>
     <div class="bi-row"><span>높이</span><strong>${height !== "정보 없음" ? height + " m" : "정보 없음"}</strong></div>
     <div class="bi-row"><span>층수</span><strong>${levels !== "-" ? levels + " F" : "-"}</strong></div>
@@ -201,16 +172,13 @@ function makeCard(item) {
 
   const meta = document.createElement("div");
   meta.className = "type";
+  meta.textContent = currentLayer === "facilities"
+    ? `${item.type} · ${item.is_paid === "Y" ? "유료" : "무료"}`
+    : item.gu;
 
   const addr = document.createElement("div");
   addr.className = "addr";
   addr.textContent = item.address;
-
-  if (currentLayer === "facilities") {
-    meta.textContent = `${item.type} · ${item.is_paid === "Y" ? "유료" : "무료"}`;
-  } else {
-    meta.textContent = item.gu;
-  }
 
   card.append(name, meta, addr);
   return card;

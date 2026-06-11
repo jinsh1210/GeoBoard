@@ -125,8 +125,8 @@ function switchView(view) {
   document.getElementById("btn-view-lane").classList.toggle("active", view === "lane");
 
   document.getElementById("map").style.display = view === "2d" ? "block" : "none";
-  document.getElementById("map3d").style.display = view === "3d" ? "block" : "none";
-  document.getElementById("map-lane").style.display = view === "lane" ? "flex" : "none";
+  // 3D 뷰와 차선 안내 뷰 모두 map3d 인스턴스를 공유
+  document.getElementById("map3d").style.display = (view === "3d" || view === "lane") ? "block" : "none";
 
   // 사이드바 필터 영역 전환
   document.getElementById("lane-inputs").style.display = view === "lane" ? "block" : "none";
@@ -147,12 +147,12 @@ function switchView(view) {
   }
 
   if (view === "lane") {
-    // display:flex → 레이아웃 계산 완료 후 초기화
-    setTimeout(() => {
-      const wrap = document.getElementById("lane-canvas-wrap");
-      initLaneRenderer(wrap);
-      renderMockLane();
-    }, 50);
+    map3d.resize();
+    if (laneSteps.length) {
+      showLaneStep(laneStepIdx);
+    }
+  } else {
+    document.getElementById("lane-hud").classList.add("hidden");
   }
 }
 
@@ -319,18 +319,114 @@ search();
 let laneSteps = [];
 let laneStepIdx = 0;
 let simTimer = null;
-let routeMap = null;
-let routePolyline = null;
-let simMarker = null;
+let laneStepMarker = null;
 
-function renderMockLane() {
-  renderLaneView({
-    laneCount: 3,
-    recommendedIndex: 0,
-    indications: ["left", "straight", "straight"],
-    distanceM: 300,
-    maneuverText: "좌회전",
-  });
+// 거리 SI 표기 (100 m / 1.2 km)
+function formatDist(m) {
+  if (m < 1000) return `${m} m`;
+  return `${(m / 1000).toFixed(1)} km`;
+}
+
+// 화살표 SVG (indication → SVG 문자열)
+function arrowSvg(indication, color) {
+  const c = color || "#94a3b8";
+  const arrows = {
+    "straight":      `<path d="M16 28 L16 6" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+                      <polyline points="10,12 16,6 22,12" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round"/>`,
+    "left":          `<path d="M22 26 L22 18 Q22 10 14 10 L10 10" stroke="${c}" stroke-width="3" stroke-linecap="round" fill="none"/>
+                      <polyline points="14,6 10,10 14,14" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round"/>`,
+    "slight left":   `<path d="M22 26 L22 18 Q22 10 14 10 L10 10" stroke="${c}" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-dasharray="2,0" opacity="0.7"/>
+                      <polyline points="14,6 10,10 14,14" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" opacity="0.7"/>`,
+    "right":         `<path d="M10 26 L10 18 Q10 10 18 10 L22 10" stroke="${c}" stroke-width="3" stroke-linecap="round" fill="none"/>
+                      <polyline points="18,6 22,10 18,14" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round"/>`,
+    "slight right":  `<path d="M10 26 L10 18 Q10 10 18 10 L22 10" stroke="${c}" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+                      <polyline points="18,6 22,10 18,14" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" opacity="0.7"/>`,
+    "uturn":         `<path d="M10 26 L10 14 Q10 6 18 6 Q26 6 26 14 Q26 22 18 22 L14 22" stroke="${c}" stroke-width="3" stroke-linecap="round" fill="none"/>
+                      <polyline points="18,26 14,22 18,18" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round"/>`,
+    "sharp left":    `<path d="M22 26 L22 18 Q22 10 14 10 L10 10" stroke="${c}" stroke-width="3" stroke-linecap="round" fill="none"/>
+                      <polyline points="14,6 10,10 14,14" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round"/>`,
+    "sharp right":   `<path d="M10 26 L10 18 Q10 10 18 10 L22 10" stroke="${c}" stroke-width="3" stroke-linecap="round" fill="none"/>
+                      <polyline points="18,6 22,10 18,14" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round"/>`,
+  };
+  const path = arrows[indication] || arrows["straight"];
+  return `<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">${path}</svg>`;
+}
+
+function calcRecommendedLane(modifier, laneCount) {
+  switch (modifier) {
+    case "left":
+    case "sharp left":
+    case "uturn":       return 0;
+    case "slight left": return Math.max(0, Math.floor(laneCount * 0.25));
+    case "right":
+    case "sharp right": return laneCount - 1;
+    case "slight right":return Math.min(laneCount - 1, Math.ceil(laneCount * 0.75));
+    default:            return Math.floor((laneCount - 1) / 2);
+  }
+}
+
+function buildIndications(modifier, laneCount) {
+  const arr = Array(laneCount).fill("straight");
+  if (modifier === "left" || modifier === "sharp left" || modifier === "uturn") {
+    arr[0] = modifier === "uturn" ? "uturn" : "left";
+  } else if (modifier === "slight left") {
+    arr[0] = "slight left";
+    if (laneCount > 1) arr[1] = "slight left";
+  } else if (modifier === "right" || modifier === "sharp right") {
+    arr[laneCount - 1] = "right";
+  } else if (modifier === "slight right") {
+    arr[laneCount - 1] = "slight right";
+    if (laneCount > 1) arr[laneCount - 2] = "slight right";
+  }
+  return arr;
+}
+
+function modifierToKo(modifier) {
+  const map = {
+    "left": "좌회전", "sharp left": "급좌회전", "slight left": "좌측 유지",
+    "right": "우회전", "sharp right": "급우회전", "slight right": "우측 유지",
+    "straight": "직진", "uturn": "유턴",
+  };
+  return map[modifier] || "직진";
+}
+
+function renderLaneHud(model) {
+  const { laneCount, recommendedIndex, indications, distanceM, maneuverText } = model;
+  const hud = document.getElementById("lane-hud");
+  document.getElementById("lane-hud-dist").textContent =
+    distanceM != null ? `${formatDist(distanceM)} 앞  ${maneuverText || ""}` : (maneuverText || "");
+
+  const lanesEl = document.getElementById("lane-hud-lanes");
+  lanesEl.innerHTML = "";
+  for (let i = 0; i < laneCount; i++) {
+    const isRec = i === recommendedIndex;
+    const ind = (indications && indications[i]) || "straight";
+    const color = isRec ? "#22c55e" : "#64748b";
+
+    const card = document.createElement("div");
+    card.className = "lane-card" + (isRec ? " recommended" : "");
+
+    if (isRec) {
+      const car = document.createElement("div");
+      car.className = "lane-car";
+      car.textContent = "🚗";
+      card.appendChild(car);
+    }
+
+    const arrowEl = document.createElement("div");
+    arrowEl.className = "lane-arrow";
+    arrowEl.innerHTML = arrowSvg(ind, color);
+    card.appendChild(arrowEl);
+
+    const numEl = document.createElement("div");
+    numEl.className = "lane-num";
+    numEl.textContent = `${i + 1}차로`;
+    card.appendChild(numEl);
+
+    lanesEl.appendChild(card);
+  }
+
+  hud.classList.remove("hidden");
 }
 
 async function startLaneGuide() {
@@ -369,19 +465,16 @@ async function startLaneGuide() {
       distanceM: Math.round(s.distance),
       name: s.name,
       laneCount: 3,
+      lat: s.maneuver.location[1],
+      lng: s.maneuver.location[0],
     }));
 
   laneStepIdx = 0;
-
-  // 렌더러 미초기화 시 강제 초기화
-  if (!laneRenderer) {
-    const wrap = document.getElementById("lane-canvas-wrap");
-    initLaneRenderer(wrap);
-  }
-
   showLaneStep(laneStepIdx);
   document.getElementById("lane-sim-controls").style.display = "block";
-  initRouteMap(routeCoords, oCoord, dCoord);
+
+  // 지도 위에 경로 라인 표시
+  updateRouteLayer(routeCoords);
 }
 
 // 선택된 좌표 캐시 (자동완성에서 선택 시 저장)
@@ -390,7 +483,7 @@ const selectedCoords = { origin: null, dest: null };
 let suggestTimer = null;
 function onSuggest(input, type) {
   clearTimeout(suggestTimer);
-  selectedCoords[type] = null; // 텍스트 바꾸면 캐시 초기화
+  selectedCoords[type] = null;
   const q = input.value.trim();
   const listEl = document.getElementById(`suggest-${type}`);
   if (q.length < 2) { listEl.innerHTML = ""; return; }
@@ -426,7 +519,7 @@ function showLaneStep(idx) {
   const recIdx = calcRecommendedLane(step.modifier, step.laneCount);
   const indications = buildIndications(step.modifier, step.laneCount);
 
-  renderLaneView({
+  renderLaneHud({
     laneCount: step.laneCount,
     recommendedIndex: recIdx,
     indications,
@@ -440,6 +533,26 @@ function showLaneStep(idx) {
     `<span class="step-road">${step.name || ""}</span> ` +
     `<span class="step-action">${modifierToKo(step.modifier)}</span>` +
     (isLast ? " · <b>목적지 도착</b>" : "");
+
+  // 해당 교차로로 카메라 이동
+  if (step.lat && step.lng) {
+    map3d.flyTo({
+      center: [step.lng, step.lat],
+      zoom: 17,
+      pitch: 55,
+      bearing: -20,
+      speed: 1.0,
+    });
+
+    // 위치 마커 업데이트
+    if (!laneStepMarker) {
+      laneStepMarker = new maptilersdk.Marker({ color: "#22c55e" })
+        .setLngLat([step.lng, step.lat])
+        .addTo(map3d);
+    } else {
+      laneStepMarker.setLngLat([step.lng, step.lat]);
+    }
+  }
 }
 
 function toggleSim() {
@@ -462,35 +575,26 @@ function toggleSim() {
       return;
     }
     showLaneStep(laneStepIdx);
-    moveSimMarker(laneStepIdx);
   }, 2000);
 }
 
-function initRouteMap(coords, oCoord, dCoord) {
-  const container = document.getElementById("lane-route-map");
-  if (!routeMap) {
-    routeMap = L.map(container, { zoomControl: false, attributionControl: false });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(routeMap);
+function updateRouteLayer(coords) {
+  const geojson = {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: coords },
+  };
+
+  if (map3d.getSource("route")) {
+    map3d.getSource("route").setData(geojson);
+    return;
   }
-  if (routePolyline) routeMap.removeLayer(routePolyline);
-  if (simMarker) routeMap.removeLayer(simMarker);
 
-  const latLngs = coords.map(([lng, lat]) => [lat, lng]);
-  routePolyline = L.polyline(latLngs, { color: "#2c7be5", weight: 4 }).addTo(routeMap);
-  routeMap.fitBounds(routePolyline.getBounds(), { padding: [16, 16] });
-  simMarker = L.circleMarker(latLngs[0], {
-    radius: 7, color: "#fff", fillColor: "#22c55e", fillOpacity: 1, weight: 2,
-  }).addTo(routeMap);
-  routeMap._stepCoords = latLngs;
-}
-
-function moveSimMarker(stepIdx) {
-  if (!simMarker || !routeMap._stepCoords) return;
-  const coords = routeMap._stepCoords;
-  const idx = Math.min(
-    Math.round((stepIdx / laneSteps.length) * (coords.length - 1)),
-    coords.length - 1
-  );
-  simMarker.setLatLng(coords[idx]);
-  routeMap.panTo(coords[idx]);
+  map3d.addSource("route", { type: "geojson", data: geojson });
+  map3d.addLayer({
+    id: "route-line",
+    type: "line",
+    source: "route",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#2c7be5", "line-width": 5, "line-opacity": 0.85 },
+  });
 }

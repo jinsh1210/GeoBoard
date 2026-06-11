@@ -136,33 +136,83 @@ select {
   display: none;
 }
 
-/* 차선 안내 탭 레이아웃 */
-#map-lane {
-  flex: 1;
+/* 차선 안내 HUD 오버레이 */
+#lane-hud {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateX(160px); /* sidebar 320px 절반 보정 */
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px 24px;
+  z-index: 500;
+  min-width: 320px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#lane-hud.hidden {
   display: none;
+}
+
+#lane-hud-dist {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+#lane-hud-lanes {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.lane-card {
+  display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.05);
+  min-width: 64px;
+  transition: background 0.2s, border-color 0.2s;
 }
 
-#lane-canvas-wrap {
-  flex: 1;
-  min-height: 400px;
-  background: #0f172a;
-  position: relative;
-  overflow: hidden;
+.lane-card.recommended {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
 }
 
-#lane-canvas-wrap canvas {
-  display: block;
-  position: absolute;
-  top: 0; left: 0;
-  width: 100% !important;
-  height: 100% !important;
+.lane-arrow {
+  width: 32px;
+  height: 32px;
+  opacity: 0.5;
 }
 
-#lane-route-map {
-  height: 220px;
-  flex-shrink: 0;
-  border-top: 2px solid #1e293b;
+.lane-card.recommended .lane-arrow {
+  opacity: 1;
+}
+
+.lane-num {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.lane-card.recommended .lane-num {
+  color: #22c55e;
+}
+
+.lane-car {
+  font-size: 18px;
+  line-height: 1;
 }
 
 /* 자동완성 */

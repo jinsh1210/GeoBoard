@@ -88,9 +88,11 @@
 
     <div id="map"></div>
     <div id="map3d"></div>
-    <div id="map-lane">
-      <div id="lane-canvas-wrap"></div>
-      <div id="lane-route-map"></div>
+
+    <!-- 차선 안내 HUD 오버레이 (map3d 위에 절대 포지션) -->
+    <div id="lane-hud" class="hidden">
+      <div id="lane-hud-dist"></div>
+      <div id="lane-hud-lanes"></div>
     </div>
 
     <div id="building-info" class="building-info hidden">
@@ -100,8 +102,6 @@
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.maptiler.com/maptiler-sdk-js/v2.3.0/maptiler-sdk.umd.min.js"></script>
-    <script src="/static/three.min.js"></script>
-    <script src="/static/lane.js"></script>
     <script src="/static/map.js"></script>
   </body>
 </html>
